@@ -62,12 +62,25 @@
   <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
   <script>
     $(function () {
-      var socket = io("/screens");
+      var socket = io("/screens", {autoConnect: false});
+      const sessionId = localStorage.getItem("sessionId");
+      if (sessionId) {
+        socket.auth = {sessionId};
+        socket.connect();
+      }
       $('form').submit(function (e) {
         e.preventDefault(); // prevents page reloading
         socket.emit('chat message', $('#m').val());
         $('#m').val('');
         return false;
+      });
+      socket.on("session", ({sessionId, screenId}) => {
+        // attach the session ID to the next reconnection attempts
+        socket.auth = {sessionId};
+        // store it in the localStorage
+        localStorage.setItem("sessionId", sessionId);
+        // save the ID of the user
+        socket.screenId = screenId;
       });
       socket.on('chat message', function (msg) {
         $('#messages').append($('<li>').text(msg));

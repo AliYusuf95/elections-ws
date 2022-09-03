@@ -28,6 +28,8 @@ async function initModels(sequelize) {
       },
       name: DataTypes.TEXT,
       sessionId: DataTypes.TEXT,
+      code: DataTypes.TEXT,
+      connected: DataTypes.BOOLEAN,
       location: {
         type: DataTypes.INTEGER,
         references: {
@@ -35,12 +37,21 @@ async function initModels(sequelize) {
           key: "id",
           deferrable: Deferrable.INITIALLY_IMMEDIATE
         }
-      },
-      connected: DataTypes.BOOLEAN,
+      }
     },
     {
       sequelize,
-      tableName: "screens"
+      tableName: "screens",
+      indexes: [
+        {
+          unique: true,
+          fields: ["sessionId"]
+        },
+        {
+          unique: true,
+          fields: ["code"]
+        }
+      ]
     }
   );
 }
@@ -48,5 +59,5 @@ async function initModels(sequelize) {
 module.exports = {
   initModels,
   Location,
-  Screen,
+  Screen
 };

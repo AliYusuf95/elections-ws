@@ -8,15 +8,22 @@ const logger = getLogger("sessionMiddleware");
 function sessionMiddleware(sessionStore) {
   return async (socket, next) => {
     socket.on("disconnect", async () => {
-      await sessionStore.deleteSession(socket.sessionId);
+      await sessionStore.saveSession(socket.sessionId, {
+        connected: false
+      });
     });
 
     const sessionId = socket.handshake.auth.sessionId;
     if (sessionId) {
       const session = await sessionStore.findSession(sessionId);
       if (session) {
+        logger.debug(`session found data=${JSON.stringify(session)}`);
+        await sessionStore.saveSession(sessionId, {
+          connected: true
+        });
         socket.sessionId = sessionId;
-        socket.screenId = session.screenId;
+        socket.screenId = session.id;
+        socket.code = session.code;
         return next();
       }
     }
@@ -26,6 +33,7 @@ function sessionMiddleware(sessionStore) {
     });
     logger.debug(`new session id={${session.id}}`);
     socket.screenId = session.id;
+    socket.code = session.code;
     next();
   };
 }

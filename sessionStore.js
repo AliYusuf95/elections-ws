@@ -1,8 +1,8 @@
+const { QueryTypes } = require("sequelize");
 const { getLogger } = require("./logger");
 
 /* abstract */ class SessionStore {
   async findSession(id) {}
-  async deleteSession(id) {}
   async saveSession(id, session) {}
   async findAllSessions() {}
 }
@@ -10,23 +10,25 @@ const { getLogger } = require("./logger");
 class InMemorySessionStore extends SessionStore {
   constructor() {
     super();
-    this.logger = getLogger('InMemorySessionStore');
+    this.logger = getLogger("InMemorySessionStore");
     this.sessions = new Map();
   }
 
   async findSession(id) {
-    this.logger.debug(`find session with id={${id}}`);
+    this.logger.debug(`find session with sessionId={${id}}`);
     return this.sessions.get(id);
   }
 
-  async deleteSession(id) {
-    this.logger.debug(`delete session with id={${id}}`);
-    this.sessions.delete(id);
-  }
-
-  async saveSession(id, session) {
-    this.logger.debug(`save session with id={${id}}, data=${JSON.stringify(session)}`);
-    this.sessions.set(id, {id: (this.sessions.size + 1), ...session});
+  async saveSession(id, data) {
+    this.logger.debug(
+      `save session with sessionId={${id}}, data=${JSON.stringify(data)}`
+    );
+    this.sessions.set(id, {
+      ...data,
+      id: this.sessions.size + 1,
+      code: id,
+      sessionId: id
+    });
     return this.sessions.get(id);
   }
 
@@ -39,23 +41,14 @@ class InMemorySessionStore extends SessionStore {
 class MySqlSessionStore extends SessionStore {
   constructor(sessionModel) {
     super();
-    this.logger = getLogger('MySqlSessionStore');
+    this.logger = getLogger("MySqlSessionStore");
     this.sessionModel = sessionModel;
   }
 
   async findSession(id) {
-    this.logger.debug(`find session with id={${id}}`);
+    this.logger.debug(`find session with sessionId={${id}}`);
     return await this.sessionModel.findOne({
-      attributes: ["id", "sessionId", "connected"],
-      where: {
-        sessionId: id
-      }
-    });
-  }
-
-  async deleteSession(id) {
-    this.logger.debug(`delete session with id={${id}}`);
-    return await this.sessionModel.destroy({
+      attributes: ["id", "code", "sessionId", "connected"],
       where: {
         sessionId: id
       }
@@ -63,14 +56,40 @@ class MySqlSessionStore extends SessionStore {
   }
 
   async saveSession(id, { connected }) {
-    this.logger.debug(`save session with id={${id}}, data={${JSON.stringify(session)}}`);
-    await this.sessionModel.findOrCreate({
+    this.logger.debug(
+      `save session with sessionId={${id}}, data=${JSON.stringify({
+        connected
+      })}`
+    );
+    const [session, created] = await this.sessionModel.findOrCreate({
       where: { sessionId: id },
       defaults: {
         sessionId: id,
         connected
       }
     });
+    if (!created) {
+      session.connected = connected;
+      await session.save();
+    }
+    if (!session.code) {
+      await this.sessionModel.sequelize.query(
+        `UPDATE screens SET code=concat(
+        substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rand(@seed:=round(rand(?)*4294967296))*36+1, 1),
+        substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rand(@seed:=round(rand(@seed)*4294967296))*36+1, 1),
+        substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rand(@seed:=round(rand(@seed)*4294967296))*36+1, 1),
+        substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rand(@seed:=round(rand(@seed)*4294967296))*36+1, 1),
+        substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rand(@seed)*36+1, 1)
+      )
+      WHERE id=?;`,
+        {
+          replacements: [session.id, session.id],
+          type: QueryTypes.UPDATE
+        }
+      );
+    }
+    await session.reload();
+    return session;
   }
 
   async findAllSessions() {

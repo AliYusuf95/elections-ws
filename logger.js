@@ -33,7 +33,7 @@ logTail.on("error", function(error) {
   );
 });
 
-function watchLogger(socket) {
+function loggerTailWSHandler(socket) {
   socket.on("openFile", data => {
     fs.stat(LOG_FILE_PATH, function(err, stat) {
       if (err) {
@@ -64,7 +64,7 @@ function watchLogger(socket) {
         if (!logSockets.has(socket.id)) {
           logSockets.set(socket.id, socket);
           if (logSockets.size === 1) {
-            logTail.watch(start);
+            logTail.watch(logTail.latestPosition());
             logger.debug(`start watching log file`);
           }
           logger.debug(`started log watching for sessionId={${socket.id}}`);
@@ -78,12 +78,12 @@ function watchLogger(socket) {
     logSockets.delete(socket.id);
     if (logSockets.size < 1) {
       logger.debug(`no log connection - stop watching log file`);
-      // logTail.unwatch();
+      logTail.unwatch();
     }
   });
 }
 
 module.exports = {
   getLogger,
-  watchLogger
+  loggerTailWSHandler
 };
