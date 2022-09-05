@@ -62,6 +62,7 @@ class MySqlSessionStore extends SessionStore {
       })}`
     );
     const [session, created] = await this.sessionModel.findOrCreate({
+      attributes: ["id", "code", "sessionId", "connected"],
       where: { sessionId: id },
       defaults: {
         sessionId: id,
@@ -79,6 +80,7 @@ class MySqlSessionStore extends SessionStore {
         substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rand(@seed:=round(rand(@seed)*4294967296))*36+1, 1),
         substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rand(@seed:=round(rand(@seed)*4294967296))*36+1, 1),
         substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rand(@seed:=round(rand(@seed)*4294967296))*36+1, 1),
+        substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rand(@seed:=round(rand(@seed)*4294967296))*36+1, 1),
         substring('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', rand(@seed)*36+1, 1)
       )
       WHERE id=?;`,
@@ -88,7 +90,7 @@ class MySqlSessionStore extends SessionStore {
         }
       );
     }
-    await session.reload();
+    await session.reload({attributes: ["id", "code", "sessionId", "connected"]});
     return session;
   }
 

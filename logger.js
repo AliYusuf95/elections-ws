@@ -1,20 +1,51 @@
 const log4js = require("log4js");
 const { Tail } = require("tail");
 const path = require("path");
+const morgan = require("morgan");
 const fs = require("fs");
+
+// WS namespace
+const NAME_SPACE = "/logs";
+const getNamespace = () => NAME_SPACE;
 
 const MAX_BUFFER = 20000;
 const LOG_FILE_NAME = "logs.log";
 const LOG_FILE_PATH = path.join(__dirname, LOG_FILE_NAME);
 const getLogger = log4js.getLogger;
 const logSockets = new Map();
-const logger = getLogger("watchLogger");
 
 log4js.configure({
   appenders: { everything: { type: "file", filename: LOG_FILE_PATH } },
   categories: { default: { appenders: ["everything"], level: "ALL" } }
 });
 
+const httpLogger = getLogger("[HTTP]");
+const logFormat = ":remote-addr - \":method :url HTTP/:http-version\" :status :res[content-length] \":user-agent\"";
+const logMapper = (str) => str.replace("\n", "");
+
+const httpLoggerMiddleware = [
+  morgan(logFormat, {
+    stream: {
+      write: (str) => httpLogger.info(logMapper(str))
+    },
+    skip: (req, res) => res.statusCode >= 400
+  }), 
+  morgan(logFormat, {
+    stream: {
+      write: (str) => httpLogger.warn(logMapper(str))
+    },
+    skip: (req, res) => res.statusCode < 400 || res.statusCode >= 500
+  }), 
+  morgan(logFormat, {
+    stream: {
+      write: (str) => httpLogger.error(logMapper(str))
+    },
+    skip: (req, res) => res.statusCode < 500
+  })
+];
+
+
+const tailLogger = getLogger("[Logger-Tail]");
 const logTail = new Tail(LOG_FILE_PATH, {
   fromBeginning: false
 });
@@ -28,16 +59,16 @@ logTail.on("line", data => {
 });
 
 logTail.on("error", function(error) {
-  logger.error(
+  tailLogger.error(
     `logTail error={${(error && error.message) || JSON.stringify(error)}}`
   );
 });
 
-function loggerTailWSHandler(socket) {
+const wsLogger = getLogger("[Logger-wsHandler]");
+async function wsHandler(socket) {
   socket.on("openFile", data => {
     fs.stat(LOG_FILE_PATH, function(err, stat) {
       if (err) {
-        console.log(err);
         socket.emit("error", err.toString());
         return;
       }
@@ -65,19 +96,19 @@ function loggerTailWSHandler(socket) {
           logSockets.set(socket.id, socket);
           if (logSockets.size === 1) {
             logTail.watch(logTail.latestPosition());
-            logger.debug(`start watching log file`);
+            wsLogger.debug(`start watching log file`);
           }
-          logger.debug(`started log watching for sessionId={${socket.id}}`);
+          wsLogger.debug(`started log watching for sessionId={${socket.id}}`);
         }
       });
     });
   });
 
   socket.on("disconnect", async () => {
-    logger.debug(`stop log watching for sessionId={${socket.id}}`);
+    wsLogger.debug(`stop log watching for sessionId={${socket.id}}`);
     logSockets.delete(socket.id);
     if (logSockets.size < 1) {
-      logger.debug(`no log connection - stop watching log file`);
+      wsLogger.debug(`no log connection - stop watching log file`);
       logTail.unwatch();
     }
   });
@@ -85,5 +116,7 @@ function loggerTailWSHandler(socket) {
 
 module.exports = {
   getLogger,
-  loggerTailWSHandler
+  wsHandler,
+  httpLoggerMiddleware,
+  getNamespace,
 };

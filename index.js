@@ -5,19 +5,26 @@ const { instrument } = require("@socket.io/admin-ui");
 const { Sequelize, QueryTypes } = require("sequelize");
 const path = require("path");
 const bodyParser = require('body-parser');
-const { getLogger, loggerTailWSHandler } = require("./logger");
+const { getLogger, httpLoggerMiddleware } = require("./logger");
 const { sessionMiddleware } = require("./sessionMiddleware");
 const { MySqlSessionStore, InMemorySessionStore } = require("./sessionStore");
 const { initModels, Location, Screen } = require("./models");
+
+const screenWSHandler = require("./screen").wsHandler;
+const screensNamespace = require("./screen").getNamespace();
+const loggerTailWSHandler = require("./logger").wsHandler;
+const logsNamespace = require("./logger").getNamespace();
 
 const logger = getLogger("index.js");
 
 const app = express();
 
+app.set("trust proxy", "loopback");
 // for parsing application/json
 app.use(bodyParser.json());
 // for parsing application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(httpLoggerMiddleware);
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -31,6 +38,8 @@ const io = new Server(server, {
   }
 });
 
+const locationRouter = require("./location").getRouter(io);
+
 instrument(io, {
   auth: {
     type: "basic",
@@ -39,50 +48,24 @@ instrument(io, {
   },
   // mode: "production"
 });
-const logsNamespace = io.of("/logs");
-const screensNamespace = io.of("/screens");
+const ioLogs = io.of(logsNamespace);
+const ioScreens = io.of(screensNamespace);
 
 const sequelize = new Sequelize(process.env.SQL_CONNECTION_URL);
 
-try {
-  (async () => {
-    await sequelize.authenticate();
-    await initModels(sequelize);
-    await Screen.update({ connected: false }, { where: { connected: true } });
-  })();
-  logger.info("Connection has been established successfully.");
-} catch (error) {
-  logger.fatal("Unable to connect to the database:", error);
-}
-
 const sessionStore = new MySqlSessionStore(Screen);
 
-screensNamespace.use(sessionMiddleware(sessionStore, sequelize));
+ioScreens.use(sessionMiddleware(sessionStore, sequelize));
 
-screensNamespace.on("connection", async socket => {
-  logger.debug("screen connected");
+ioScreens.on("connection", screenWSHandler);
 
-  // emit session details
-  socket.emit("session", {
-    sessionId: socket.sessionId,
-    screenId: socket.screenId,
-    code: socket.code
-  });
-
-  socket.on("chat message", msg => {
-    logger.debug(msg);
-  });
-
-  socket.on("disconnect", async () => {
-    logger.debug("screen disconnected");
-  });
-});
-
-logsNamespace.on("connection", loggerTailWSHandler);
+ioLogs.on("connection", loggerTailWSHandler);
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
+
+app.use("/location", locationRouter);
 
 app.get("/db-ops/:type", async (req, res) => {
   const type = req.params.type;
@@ -105,49 +88,6 @@ app.get("/log-tail", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "log-tail.html"));
 });
 
-app.post("/locations/:locationId/add-screen/:code", async (req, res) => {
-  const locationId = req.params.locationId;
-  const code = req.params.code;
-  const name = req.body.name;
-
-  logger.debug(`try to find location, locationId={${locationId}}`);
-  const location = await Location.findOne({
-    where: {
-      id: locationId
-    }
-  });
-
-  if(!location) {
-    return res.status(403).json({message: `Location is not exists, locationId={${locationId}}`});
-  }
-
-  logger.debug(`try add screen to location, locationId={${locationId}} code={${code}} name={${name}}`);
-  const screen = await Screen.findOne({
-    where: {
-      code,
-      location: null,
-      connected: true,
-    },
-  });
-
-  if(!screen) {
-    return res.status(403).json({message: `Screen is not exists or not available, code={${code}}`});
-  }
-
-  screen.location = locationId;
-  screen.name = name;
-  await screen.save();
-
-  const sockets = await io.of("/screens").fetchSockets();
-  const screenSocket = sockets.find(s => s.sessionId == screen.sessionId);
-  logger.debug(`update screen connection ${!!screenSocket}, ${screen.sessionId}, ${sockets.length}`);
-  if(screenSocket) {
-    screenSocket.emit({locationId, name});
-  }
-  
-  return res.status(200).json({message: `Screen has been updated`});
-});
-
 app.get("*", async (req, res) => {
   const message = `It works!\n\nNodeJS ${process.version}${__dirname}\n`;
   res.set("Content-Type", "text/plain");
@@ -155,6 +95,16 @@ app.get("*", async (req, res) => {
   // res.redirect('/');
 });
 
-server.listen(3000, () => {
-  logger.info("listening on *:3000");
-});
+try {
+  (async () => {
+    await sequelize.authenticate();
+    await initModels(sequelize);
+    await Screen.update({ connected: false }, { where: { connected: true } });
+    server.listen(3000, () => {
+      logger.info("listening on *:3000");
+    });    
+  })();
+  logger.info("Connection has been established successfully.");
+} catch (error) {
+  logger.fatal("Unable to connect to the database:", error);
+}
