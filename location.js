@@ -138,6 +138,86 @@ function getRouter(io) {
     return res.status(200).json({message: `Screen has been removed`});
   });
 
+  router.post("/:locationId/show-vote/:screenId", async (req, res) => {
+    const locationId = req.params.locationId;
+    const screenId = req.params.screenId;
+
+    routerLogger.debug(`try to find location, locationId={${locationId}}`);
+    const location = await Location.findOne({
+      where: {
+        id: locationId
+      }
+    });
+
+    if(!location) {
+      return res.status(404).json({message: `Location is not exists, locationId={${locationId}}`});
+    }
+
+    routerLogger.debug(`try find the screen, locationId={${locationId}} screenId={${screenId}}`);
+    const screen = await Screen.findOne({
+      where: {
+        id: screenId,
+        locationId,
+        connected: true,
+      },
+    });
+
+    if(!screen) {
+      return res.status(404).json({message: `Screen is not exists or not available`});
+    }
+
+    routerLogger.debug(`try to find screen socket`);
+    const socket = (await ioScreens.fetchSockets()).find(s => s.sessionId === screen.sessionId);
+
+    if(!socket) {
+      return res.status(404).json({message: `Screen is not connected, screenId={${screenId}}`});
+    }
+
+    socket.emit("show-vote");
+
+    return res.status(200).json({message: `Vote screen has requested`});
+  });
+
+  router.post("/:locationId/cancel-vote/:screenId", async (req, res) => {
+    const locationId = req.params.locationId;
+    const screenId = req.params.screenId;
+
+    routerLogger.debug(`try to find location, locationId={${locationId}}`);
+    const location = await Location.findOne({
+      where: {
+        id: locationId
+      }
+    });
+
+    if(!location) {
+      return res.status(404).json({message: `Location is not exists, locationId={${locationId}}`});
+    }
+
+    routerLogger.debug(`try find the screen, locationId={${locationId}} screenId={${screenId}}`);
+    const screen = await Screen.findOne({
+      where: {
+        id: screenId,
+        locationId,
+        connected: true,
+      },
+    });
+
+    if(!screen) {
+      return res.status(404).json({message: `Screen is not exists or not available`});
+    }
+
+    routerLogger.debug(`try to find screen socket`);
+    const socket = (await ioScreens.fetchSockets()).find(s => s.sessionId === screen.sessionId);
+
+    if(!socket) {
+      return res.status(404).json({message: `Screen is not connected, screenId={${screenId}}`});
+    }
+
+    socket.emit("cancel-vote");
+
+    return res.status(200).json({message: `Vote screen has canceled`});
+  });
+
   return router;
 }
 

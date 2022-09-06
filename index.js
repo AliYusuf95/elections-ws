@@ -1,14 +1,20 @@
 const express = require("express");
 const http = require("http");
+const fs = require("fs/promises");
 const { Server } = require("socket.io");
 const { instrument } = require("@socket.io/admin-ui");
 const { Sequelize, QueryTypes } = require("sequelize");
 const path = require("path");
+const helmet = require("helmet");
+const cors = require("cors");
 const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
+const unserializer = require('php-session-unserialize');
 const { getLogger, httpLoggerMiddleware } = require("./logger");
 const { sessionMiddleware } = require("./sessionMiddleware");
 const { MySqlSessionStore, InMemorySessionStore } = require("./sessionStore");
 const { initModels, Location, Screen } = require("./models");
+const { isAuthenticated, isAdmin, isAuthenticatedOrAdmin } = require("./authMiddleware");
 
 const screenWSHandler = require("./screen").wsHandler;
 const screensNamespace = require("./screen").getNamespace();
@@ -20,10 +26,40 @@ const logger = getLogger("index.js");
 const app = express();
 
 app.set("trust proxy", "loopback");
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      "script-src": ["'self'", "'unsafe-inline'", "https://*.googleapis.com", "https://*.bootstrapcdn.com"],
+      "img-src": ["'self'", "data:", "https://*.bootstrapcdn.com"]
+    },
+  }
+}));
+app.use(cors({
+  origin: [
+    "https://elections-ws.memamali.com",
+    "https://elections.memamali.com",
+  ],
+  credentials: true
+}));
 // for parsing application/json
 app.use(bodyParser.json());
 // for parsing application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cookieParser());
+// parse php session
+app.use(async (req, res, next) => {
+  try {
+    if (req.cookies['PHPSESSID']) {
+      const data = await fs.readFile('/var/cpanel/php/sessions/ea-php72/sess_' + req.cookies['PHPSESSID'], 'utf8');
+      const session = unserializer(data.trim());
+      logger.debug(`cookies-session=${JSON.stringify(session)}`);
+      req.session = session;
+    } 
+  } catch (error) {
+    logger.error(`unserialize cookies-session error={${(error && error.message) || JSON.stringify(error)}}`);
+  }
+  next();
+});
 app.use(httpLoggerMiddleware);
 
 const server = http.createServer(app);
@@ -61,13 +97,13 @@ ioScreens.on("connection", screenWSHandler);
 
 ioLogs.on("connection", loggerTailWSHandler);
 
-app.get("/", (req, res) => {
+app.get("/", isAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.use("/location", locationRouter);
+app.use("/location", isAuthenticated, locationRouter);
 
-app.get("/db-ops/:type", async (req, res) => {
+app.get("/db-ops/:type", isAdmin, async (req, res) => {
   const type = req.params.type;
   if (!["alter", "force"].includes(type)) {
     res.status(501).send();
@@ -80,7 +116,7 @@ app.get("/db-ops/:type", async (req, res) => {
   res.status(200).send(message);
 });
 
-app.get("/log", (req, res) => {
+app.get("/log", isAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, "logs.log"));
 });
 
