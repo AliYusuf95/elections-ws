@@ -36,6 +36,13 @@ function wsHandler(io) {
         screenName: screen.name,
       });
       socket.join(`location-${screen.location.id}`);
+
+      // notify users
+      const screens = await getLocationScreens(screen.location.id, io);
+      ioUsers.to(`location-${screen.location.id}`).emit('screens-list', {
+        locationId: screen.location.id,
+        screens,
+      });
     }
 
     socket.on('chat message', (msg) => {
@@ -43,6 +50,7 @@ function wsHandler(io) {
     });
 
     socket.on('disconnect', async () => {
+      // notify users
       const screens = await getLocationScreens(screen.location.id, io);
       ioUsers.to(`location-${screen.location.id}`).emit('screens-list', {
         locationId: screen.location.id,

@@ -64,10 +64,11 @@ function wsHandler(io) {
   const { getLocationScreens } = require('./location');
   return async (socket) => {
     if (socket.data.locationId) {
-      socket.emit(
-        'screens-list',
-        await getLocationScreens(socket.data.locationId, io)
-      );
+      const screens = await getLocationScreens(socket.data.locationId, io);
+      socket.emit('screens-list', {
+        locationId: socket.data.locationId,
+        screens,
+      });
     }
 
     socket.on('join-all', async () => {
