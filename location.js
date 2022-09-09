@@ -39,6 +39,7 @@ function getRouter(io) {
     const locationId = req.params.locationId;
     const code = req.params.code;
     const name = req.body.name;
+    const user = req.user;
 
     if (!user || !user.isAdmin() || user.locationId !== locationId) {
       return res.status(403).json({ message: "You don't have permission" });
