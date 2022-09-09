@@ -1,50 +1,50 @@
-const express = require("express");
-const { getLogger } = require("./logger");
-const { Location, Screen } = require("./models");
+const express = require('express');
+const { getLogger } = require('./logger');
+const { Location, Screen } = require('./models');
 
 const router = express.Router();
 
-const NAME_SPACE = "/screens";
-const getNamespace = () => NAME_SPACE;
+const NAMESPACE = '/screens';
 
-const wsLogger = getLogger("[Screen-wsHandler]");
+function wsHandler(io) {
+  const logger = getLogger('[Screen-wsHandler]');
+  return async (socket) => {
+    logger.debug('screen connected');
 
-async function wsHandler(socket) {
-  wsLogger.debug("screen connected");
-
-  // emit new-session details
-  socket.emit("new-session", {
-    sessionId: socket.sessionId,
-    screenId: socket.screenId,
-    code: socket.code
-  });
-
-  const screen = await Screen.findOne({
-    where: {
+    // emit new-session details
+    socket.emit('new-session', {
       sessionId: socket.sessionId,
-      id: socket.screenId
-    },
-    include: Location
-  });
-
-  if (screen && screen.location) {
-    socket.emit("attached", {
-      locationName: screen.location.name,
-      screenName: screen.name,
+      screenId: socket.screenId,
+      code: socket.code,
     });
-    socket.join(`location-${screen.location.id}`);
-  }
 
-  socket.on("chat message", msg => {
-    wsLogger.debug(msg);
-  });
+    const screen = await Screen.findOne({
+      where: {
+        sessionId: socket.sessionId,
+        id: socket.screenId,
+      },
+      include: Location,
+    });
 
-  socket.on("disconnect", async () => {
-    wsLogger.debug("screen disconnected");
-  });
+    if (screen && screen.location) {
+      socket.emit('attached', {
+        locationName: screen.location.name,
+        screenName: screen.name,
+      });
+      socket.join(`location-${screen.location.id}`);
+    }
+
+    socket.on('chat message', (msg) => {
+      logger.debug(msg);
+    });
+
+    socket.on('disconnect', async () => {
+      logger.debug('screen disconnected');
+    });
+  };
 }
 
 module.exports = {
   wsHandler,
-  getNamespace,
+  NAMESPACE,
 };

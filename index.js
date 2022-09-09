@@ -1,47 +1,60 @@
-const express = require("express");
-const http = require("http");
-const fs = require("fs/promises");
-const { Server } = require("socket.io");
-const { instrument } = require("@socket.io/admin-ui");
-const { Sequelize, QueryTypes } = require("sequelize");
-const path = require("path");
-const helmet = require("helmet");
-const cors = require("cors");
+const express = require('express');
+const http = require('http');
+const fs = require('fs/promises');
+const { Server } = require('socket.io');
+const { instrument } = require('@socket.io/admin-ui');
+const { Sequelize, QueryTypes } = require('sequelize');
+const path = require('path');
+const helmet = require('helmet');
+const cors = require('cors');
 const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const unserializer = require('php-session-unserialize');
-const { getLogger, httpLoggerMiddleware } = require("./logger");
-const { sessionMiddleware } = require("./sessionMiddleware");
-const { MySqlSessionStore, InMemorySessionStore } = require("./sessionStore");
-const { initModels, AdminUser, User, Location, Screen } = require("./models");
-const { isUser, isAdminUser, isAuthenticated } = require("./authMiddleware");
+const { getLogger, httpLoggerMiddleware } = require('./logger');
+const { sessionMiddleware } = require('./sessionMiddleware');
+const { MySqlSessionStore, InMemorySessionStore } = require('./sessionStore');
+const { initModels, AdminUser, User, Location, Screen } = require('./models');
+const { isUser, isAdminUser, isAuthenticated } = require('./authMiddleware');
 
-const screenWSHandler = require("./screen").wsHandler;
-const screensNamespace = require("./screen").getNamespace();
-const loggerTailWSHandler = require("./logger").wsHandler;
-const logsNamespace = require("./logger").getNamespace();
+const locationRouter = require('./location').getRouter;
+const screenWSHandler = require('./screen').wsHandler;
+const screensNamespace = require('./screen').NAMESPACE;
+const userWSHandler = require('./user').wsHandler;
+const userWSMiddleware = require('./user').wsMiddleware;
+const usersNamespace = require('./user').NAMESPACE;
+const loggerTailWSHandler = require('./logger').wsHandler;
+const logsNamespace = require('./logger').NAMESPACE;
 
-const logger = getLogger("index.js");
+const logger = getLogger('index.js');
 
 const app = express();
 const ckParser = cookieParser();
 
-app.set("trust proxy", "loopback");
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      "script-src": ["'self'", "'unsafe-inline'", "https://*.googleapis.com", "https://*.bootstrapcdn.com"],
-      "img-src": ["'self'", "data:", "https://*.bootstrapcdn.com"]
+app.set('trust proxy', 'loopback');
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        'script-src': [
+          "'self'",
+          "'unsafe-inline'",
+          'https://*.googleapis.com',
+          'https://*.bootstrapcdn.com',
+        ],
+        'img-src': ["'self'", 'data:', 'https://*.bootstrapcdn.com'],
+      },
     },
-  }
-}));
-app.use(cors({
-  origin: [
-    "https://elections-ws.memamali.com",
-    "https://elections.memamali.com",
-  ],
-  credentials: true
-}));
+  })
+);
+app.use(
+  cors({
+    origin: [
+      'https://elections-ws.memamali.com',
+      'https://elections.memamali.com',
+    ],
+    credentials: true,
+  })
+);
 // for parsing application/json
 app.use(bodyParser.json());
 // for parsing application/x-www-form-urlencoded
@@ -51,13 +64,20 @@ app.use(ckParser);
 app.use(async (req, res, next) => {
   try {
     if (req.cookies['PHPSESSID']) {
-      const data = await fs.readFile('/var/cpanel/php/sessions/ea-php72/sess_' + req.cookies['PHPSESSID'], 'utf8');
+      const data = await fs.readFile(
+        '/var/cpanel/php/sessions/ea-php72/sess_' + req.cookies['PHPSESSID'],
+        'utf8'
+      );
       const session = unserializer(data.trim());
       logger.debug(`cookies-session=${JSON.stringify(session)}`);
       req.session = session;
-    } 
+    }
   } catch (error) {
-    logger.error(`unserialize cookies-session error={${(error && error.message) || JSON.stringify(error)}}`);
+    logger.error(
+      `unserialize cookies-session error={${
+        (error && error.message) || JSON.stringify(error)
+      }}`
+    );
   }
   next();
 });
@@ -67,27 +87,25 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
-      "https://elections-ws.memamali.com",
-      "https://elections.memamali.com",
-      "https://admin.socket.io"
+      'https://elections-ws.memamali.com',
+      'https://elections.memamali.com',
+      'https://admin.socket.io',
     ],
-    credentials: true
-  }
+    credentials: true,
+  },
 });
-
-const locationRouter = require("./location").getRouter(io);
 
 instrument(io, {
   auth: {
-    type: "basic",
-    username: "admin",
-    password: "$2b$10$heqvAkYMez.Va6Et2uXInOnkCT6/uQj1brkrbyG3LpopDklcq7ZOS" // "changeit"
+    type: 'basic',
+    username: 'admin',
+    password: '$2b$10$heqvAkYMez.Va6Et2uXInOnkCT6/uQj1brkrbyG3LpopDklcq7ZOS', // "changeit"
   },
   // mode: "production"
 });
 const ioLogs = io.of(logsNamespace);
 const ioScreens = io.of(screensNamespace);
-const ioUsers = io.of("/users");
+const ioUsers = io.of(usersNamespace);
 
 const sequelize = new Sequelize(process.env.SQL_CONNECTION_URL);
 
@@ -95,85 +113,48 @@ const sessionStore = new MySqlSessionStore(Screen);
 
 ioScreens.use(sessionMiddleware(sessionStore, sequelize));
 
-ioScreens.on("connection", screenWSHandler);
+ioScreens.on('connection', screenWSHandler(io));
 
-ioLogs.on("connection", loggerTailWSHandler);
+ioLogs.on('connection', loggerTailWSHandler(io));
 
 ioUsers.use((socket, next) => {
-    ckParser(socket.request, null, next);
-});
-ioUsers.use(async (socket, next) => {
-  try {
-    if (socket.request.cookies['PHPSESSID']) {
-      const data = await fs.readFile('/var/cpanel/php/sessions/ea-php72/sess_' + socket.request.cookies['PHPSESSID'], 'utf8');
-      const session = unserializer(data.trim());
-      logger.debug(`cookies-session=${JSON.stringify(session)}`);
-      socket.data.session = session;
-      if (session.user === true) {
-          socket.data.user = await User.findOne({
-              where: {
-                  id: session.id,
-                  locationId: socket.handshake.auth.locationId
-              }
-          });
-        logger.debug(`socket-user=${JSON.stringify(socket.data.user)}`);
-      } else if (session.admin === true) {
-          socket.data.user = await AdminUser.findOne({
-              where: {
-                  id: session.id,
-              }
-          });
-          logger.debug(`socket-user=${JSON.stringify(socket.data.user)}`);
-      }
-      socket.data.screens = await Screen.findAll({
-          where: {
-              locationId: socket.handshake.auth.locationId,
-          },
-          include: Location
-      });
-      logger.debug(`socket-screens=${JSON.stringify(socket.data.screens)}`);
-    }
-    next();
-  } catch (error) {
-    logger.error(`unserialize cookies-session error={${(error && error.message) || JSON.stringify(error)}}`);
-    next();
-  }
+  ckParser(socket.request, null, next);
 });
 
-ioUsers.on("connection", (socket) => {
-    socket.emit("screens-list", socket.data.screens);
+ioUsers.use(userWSMiddleware(io));
+
+ioUsers.on('connection', userWSHandler(io));
+
+app.get('/', isUser, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get("/", isUser, (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
+app.use('/location', isAuthenticated, locationRouter(io));
 
-app.use("/location", isAuthenticated, locationRouter);
-
-app.get("/db-ops/:type", isAdminUser, async (req, res) => {
+app.get('/db-ops/:type', isAdminUser, async (req, res) => {
   const type = req.params.type;
-  if (!["alter", "force"].includes(type)) {
+  if (!['alter', 'force'].includes(type)) {
     res.status(501).send();
     return;
   }
   await sequelize.sync({ [type]: true, match: /^memamali_elections$/ });
   const message = `All models were synchronized successfully, type={${type}}`;
   logger.info(message);
-  res.set("Content-Type", "text/plain");
+  res.set('Content-Type', 'text/plain');
   res.status(200).send(message);
 });
 
-app.get("/log", isAdminUser, (req, res) => {
-  res.sendFile(path.join(__dirname, "logs.log"));
+app.get('/log', isAdminUser, (req, res) => {
+  res.sendFile(path.join(__dirname, 'logs.log'));
 });
 
-app.get("/log-tail", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "log-tail.html"));
+app.get('/log-tail', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'log-tail.html'));
 });
 
-app.get("*", async (req, res) => {
+app.get('*', async (req, res) => {
   const message = `It works!\n\nNodeJS ${process.version}${__dirname}\n`;
-  res.set("Content-Type", "text/plain");
+  res.set('Content-Type', 'text/plain');
   res.status(200).send(message);
   // res.redirect('/');
 });
@@ -184,10 +165,10 @@ try {
     await initModels(sequelize);
     await Screen.update({ connected: false }, { where: { connected: true } });
     server.listen(3000, () => {
-      logger.info("listening on *:3000");
-    });    
+      logger.info('listening on *:3000');
+    });
   })();
-  logger.info("Connection has been established successfully.");
+  logger.info('Connection has been established successfully.');
 } catch (error) {
-  logger.fatal("Unable to connect to the database:", error);
+  logger.fatal('Unable to connect to the database:', error);
 }
