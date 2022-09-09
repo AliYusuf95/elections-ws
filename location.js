@@ -41,6 +41,11 @@ function getRouter(io) {
     const name = req.body.name;
     const user = req.user;
 
+    routerLogger.debug(
+      `user={${!!user}} user.isAdmin={${user.isAdmin}} user.locationId={${
+        user.locationId
+      }} locationId={${locationId}}`
+    );
     if (!user || (!user.isAdmin && String(user.locationId) !== locationId)) {
       return res.status(403).json({ message: "You don't have permission" });
     }

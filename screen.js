@@ -8,6 +8,10 @@ const NAMESPACE = '/screens';
 
 function wsHandler(io) {
   const logger = getLogger('[Screen-wsHandler]');
+  const { getLocationScreens } = require('./location');
+  const usersNamespace = require('./user').NAMESPACE;
+
+  const ioUsers = io.of(usersNamespace);
   return async (socket) => {
     logger.debug('screen connected');
 
@@ -39,6 +43,11 @@ function wsHandler(io) {
     });
 
     socket.on('disconnect', async () => {
+      const screens = await getLocationScreens(screen.location.id, io);
+      ioUsers.to(`location-${screen.location.id}`).emit('screens-list', {
+        locationId: screen.location.id,
+        screens,
+      });
       logger.debug('screen disconnected');
     });
   };
