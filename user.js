@@ -24,6 +24,7 @@ function wsMiddleware(io) {
         socket.data.session = session;
         if (session.user === true) {
           socket.data.user = await User.findOne({
+            attributes: ['id', 'username', 'locationId'],
             where: {
               id: session.id,
               locationId: socket.handshake.auth.locationId,
@@ -33,6 +34,7 @@ function wsMiddleware(io) {
           logger.debug(`socket-user=${JSON.stringify(socket.data.user)}`);
         } else if (session.admin === true) {
           socket.data.user = await AdminUser.findOne({
+            attributes: ['id', 'username'],
             where: {
               id: session.id,
             },
