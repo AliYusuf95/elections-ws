@@ -1,6 +1,6 @@
 const { User, Location, AdminUser } = require("./models");
 
-async function isAuthenticated(req, res, next) {
+async function isUser(req, res, next) {
   if (!req.session || req.session.loggedin !== true) {
     return res.status(403).json({message: "You don't have permission"});
   }
@@ -17,7 +17,7 @@ async function isAuthenticated(req, res, next) {
   next();
 }
 
-async function isAdmin(req, res, next) {
+async function isAdminUser(req, res, next) {
   if (!req.session || req.session.loggedin !== true || req.session.admin !== true) {
     return res.status(403).json({message: "You don't have permission"})
   }
@@ -33,7 +33,7 @@ async function isAdmin(req, res, next) {
   next();
 }
 
-async function isAuthenticatedOrAdmin(req, res, next) {
+async function isAuthenticated(req, res, next) {
   if (!req.session || req.session.loggedin !== true) {
     return res.status(403).json({message: "You don't have permission"})
   }
@@ -63,7 +63,7 @@ async function isAuthenticatedOrAdmin(req, res, next) {
 }
 
 module.exports = {
-  isAuthenticated,
-  isAdmin,
-  isAuthenticatedOrAdmin
+  isUser,
+  isAdminUser,
+  isAuthenticated
 };

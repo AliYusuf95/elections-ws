@@ -14,6 +14,10 @@ class User extends Model {
     return compareSync(password, this.password);
   }
 
+  isAdmin() {
+    return false;
+  }
+
 }
 
 class AdminUser extends Model {
@@ -27,12 +31,17 @@ class AdminUser extends Model {
     return compareSync(password, this.password);
   }
 
+  isAdmin() {
+    return true;
+  }
+
 }
+class Voter extends Model {}
 
 async function initModels(sequelize) {
   Location.init(
     {
-      name: DataTypes.TEXT
+      name: DataTypes.STRING
     },
     {
       sequelize,
@@ -43,9 +52,9 @@ async function initModels(sequelize) {
 
   Screen.init(
     {
-      name: DataTypes.TEXT,
-      sessionId: DataTypes.TEXT,
-      code: DataTypes.TEXT,
+      name: DataTypes.STRING,
+      sessionId: DataTypes.STRING,
+      code: DataTypes.STRING,
       connected: DataTypes.BOOLEAN
     },
     {
@@ -71,17 +80,17 @@ async function initModels(sequelize) {
   User.init(
     {
       username: {
-        type: DataTypes.TEXT,
+        type: DataTypes.STRING,
         allowNull: false
       },
       password: {
-        type: DataTypes.TEXT,
+        type: DataTypes.STRING,
         allowNull: false
       },
     },
     {
       sequelize,
-      tableName: 'users_new',
+      tableName: "users_new",
       modelName: "user",
       hooks: {
         beforeCreate: (user) => {
@@ -98,20 +107,42 @@ async function initModels(sequelize) {
   AdminUser.init(
     {
       username: {
-        type: DataTypes.TEXT,
+        type: DataTypes.STRING,
         allowNull: false
       },
       password: {
-        type: DataTypes.TEXT,
+        type: DataTypes.STRING,
         allowNull: false
       },
     },
     {
       sequelize,
-      tableName: 'admin_users',
+      tableName: "admin_users",
       modelName: "adminUser",
     }
   );
+  
+  Voter.init(
+      {
+          name: DataTypes.STRING,
+          cpr: DataTypes.INTEGER(9),
+          mobile: DataTypes.INTEGER(11),
+          fromwhere: DataTypes.STRING,
+          status: DataTypes.INTEGER(11),
+          unique_key: DataTypes.STRING,
+          notes: DataTypes.STRING,
+      }, 
+      {
+          sequelize,
+          tableName: "voters_new",
+          modelName: "voter",
+      }
+  );
+  
+  Voter.Location = Voter.belongsTo(Location);
+  Location.Voter = Location.hasMany(Voter);
+  Voter.User = Voter.belongsTo(User);
+  User.Voter = User.hasMany(Voter);
 
 }
 
@@ -120,5 +151,6 @@ module.exports = {
   Location,
   Screen,
   User,
-  AdminUser
+  AdminUser,
+  Voter
 };

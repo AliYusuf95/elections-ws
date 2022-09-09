@@ -13,8 +13,8 @@ const unserializer = require('php-session-unserialize');
 const { getLogger, httpLoggerMiddleware } = require("./logger");
 const { sessionMiddleware } = require("./sessionMiddleware");
 const { MySqlSessionStore, InMemorySessionStore } = require("./sessionStore");
-const { initModels, Location, Screen } = require("./models");
-const { isAuthenticated, isAdmin, isAuthenticatedOrAdmin } = require("./authMiddleware");
+const { initModels, AdminUser, User, Location, Screen } = require("./models");
+const { isUser, isAdminUser, isAuthenticated } = require("./authMiddleware");
 
 const screenWSHandler = require("./screen").wsHandler;
 const screensNamespace = require("./screen").getNamespace();
@@ -24,6 +24,7 @@ const logsNamespace = require("./logger").getNamespace();
 const logger = getLogger("index.js");
 
 const app = express();
+const ckParser = cookieParser();
 
 app.set("trust proxy", "loopback");
 app.use(helmet({
@@ -45,7 +46,7 @@ app.use(cors({
 app.use(bodyParser.json());
 // for parsing application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(cookieParser());
+app.use(ckParser);
 // parse php session
 app.use(async (req, res, next) => {
   try {
@@ -86,6 +87,7 @@ instrument(io, {
 });
 const ioLogs = io.of(logsNamespace);
 const ioScreens = io.of(screensNamespace);
+const ioUsers = io.of("/users");
 
 const sequelize = new Sequelize(process.env.SQL_CONNECTION_URL);
 
@@ -97,13 +99,58 @@ ioScreens.on("connection", screenWSHandler);
 
 ioLogs.on("connection", loggerTailWSHandler);
 
-app.get("/", isAuthenticated, (req, res) => {
+ioUsers.use((socket, next) => {
+    ckParser(socket.request, null, next);
+});
+ioUsers.use(async (socket, next) => {
+  try {
+    if (socket.request.cookies['PHPSESSID']) {
+      const data = await fs.readFile('/var/cpanel/php/sessions/ea-php72/sess_' + socket.request.cookies['PHPSESSID'], 'utf8');
+      const session = unserializer(data.trim());
+      logger.debug(`cookies-session=${JSON.stringify(session)}`);
+      socket.data.session = session;
+      if (session.user === true) {
+          socket.data.user = await User.findOne({
+              where: {
+                  id: session.id,
+                  locationId: socket.handshake.auth.locationId
+              }
+          });
+        logger.debug(`socket-user=${JSON.stringify(socket.data.user)}`);
+      } else if (session.admin === true) {
+          socket.data.user = await AdminUser.findOne({
+              where: {
+                  id: session.id,
+              }
+          });
+          logger.debug(`socket-user=${JSON.stringify(socket.data.user)}`);
+      }
+      socket.data.screens = await Screen.findAll({
+          where: {
+              locationId: socket.handshake.auth.locationId,
+          },
+          include: Location
+      });
+      logger.debug(`socket-screens=${JSON.stringify(socket.data.screens)}`);
+    }
+    next();
+  } catch (error) {
+    logger.error(`unserialize cookies-session error={${(error && error.message) || JSON.stringify(error)}}`);
+    next();
+  }
+});
+
+ioUsers.on("connection", (socket) => {
+    socket.emit("screens-list", socket.data.screens);
+});
+
+app.get("/", isUser, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.use("/location", isAuthenticated, locationRouter);
 
-app.get("/db-ops/:type", isAdmin, async (req, res) => {
+app.get("/db-ops/:type", isAdminUser, async (req, res) => {
   const type = req.params.type;
   if (!["alter", "force"].includes(type)) {
     res.status(501).send();
@@ -116,7 +163,7 @@ app.get("/db-ops/:type", isAdmin, async (req, res) => {
   res.status(200).send(message);
 });
 
-app.get("/log", isAdmin, (req, res) => {
+app.get("/log", isAdminUser, (req, res) => {
   res.sendFile(path.join(__dirname, "logs.log"));
 });
 
