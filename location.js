@@ -41,7 +41,7 @@ function getRouter(io) {
     const name = req.body.name;
     const user = req.user;
 
-    if (!user || !user.isAdmin() || user.locationId !== locationId) {
+    if (!user || (!user.isAdmin && String(user.locationId) !== locationId)) {
       return res.status(403).json({ message: "You don't have permission" });
     }
 
@@ -111,8 +111,9 @@ function getRouter(io) {
   router.post('/:locationId/remove-screen/:screenId', async (req, res) => {
     const locationId = req.params.locationId;
     const screenId = req.params.screenId;
+    const user = req.user;
 
-    if (!user || !user.isAdmin() || user.locationId !== locationId) {
+    if (!user || (!user.isAdmin && String(user.locationId) !== locationId)) {
       return res.status(403).json({ message: "You don't have permission" });
     }
 
@@ -176,8 +177,9 @@ function getRouter(io) {
   router.post('/:locationId/show-vote/:screenId', async (req, res) => {
     const locationId = req.params.locationId;
     const screenId = req.params.screenId;
+    const user = req.user;
 
-    if (!user || !user.isAdmin() || user.locationId !== locationId) {
+    if (!user || (!user.isAdmin && String(user.locationId) !== locationId)) {
       return res.status(403).json({ message: "You don't have permission" });
     }
 
@@ -232,7 +234,7 @@ function getRouter(io) {
     const screenId = req.params.screenId;
     const user = req.user;
 
-    if (!user || !user.isAdmin() || user.locationId !== locationId) {
+    if (!user || (!user.isAdmin && String(user.locationId) !== locationId)) {
       return res.status(403).json({ message: "You don't have permission" });
     }
 

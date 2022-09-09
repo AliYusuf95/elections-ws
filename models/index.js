@@ -12,10 +12,6 @@ class User extends Model {
   static isValidPassword(password) {
     return compareSync(password, this.password);
   }
-
-  static isAdmin() {
-    return false;
-  }
 }
 
 class AdminUser extends Model {
@@ -26,10 +22,6 @@ class AdminUser extends Model {
 
   static isValidPassword(password) {
     return compareSync(password, this.password);
-  }
-
-  static isAdmin() {
-    return true;
   }
 }
 class Voter extends Model {}
@@ -83,6 +75,15 @@ async function initModels(sequelize) {
         type: DataTypes.STRING,
         allowNull: false,
       },
+      isAdmin: {
+        type: DataTypes.VIRTUAL,
+        get() {
+          return false;
+        },
+        set(value) {
+          throw new Error('Do not try to set the `isAdmin` value!');
+        },
+      },
     },
     {
       sequelize,
@@ -108,6 +109,15 @@ async function initModels(sequelize) {
       password: {
         type: DataTypes.STRING,
         allowNull: false,
+      },
+      isAdmin: {
+        type: DataTypes.VIRTUAL,
+        get() {
+          return true;
+        },
+        set(value) {
+          throw new Error('Do not try to set the `isAdmin` value!');
+        },
       },
     },
     {
