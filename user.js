@@ -1,7 +1,8 @@
 const express = require('express');
+const fs = require('fs/promises');
+const unserializer = require('php-session-unserialize');
 const { getLogger } = require('./logger');
 const { Location, Screen, User, AdminUser } = require('./models');
-const { getLocationScreens } = require('./location');
 
 const router = express.Router();
 
@@ -58,11 +59,12 @@ function wsMiddleware(io) {
 
 function wsHandler(io) {
   const logger = getLogger('[User-wsHandler]');
+  const { getLocationScreens } = require('./location');
   return async (socket) => {
     if (socket.data.locationId) {
       socket.emit(
         'screens-list',
-        await getLocationScreens(socket.data.locationId)
+        await getLocationScreens(socket.data.locationId, io)
       );
     }
 

@@ -81,7 +81,7 @@ app.use(async (req, res, next) => {
   }
   next();
 });
-app.use(httpLoggerMiddleware);
+app.use(httpLoggerMiddleware());
 
 const server = http.createServer(app);
 const io = new Server(server, {

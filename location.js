@@ -1,13 +1,15 @@
 const express = require('express');
 const { getLogger } = require('./logger');
 const { Location, Screen } = require('./models');
-const screensNamespace = require('./screen').NAMESPACE;
-const usersNamespace = require('./user').NAMESPACE;
 
 const routerLogger = getLogger('[Location-router]');
 
 function getRouter(io) {
   const router = express.Router();
+
+  const screensNamespace = require('./screen').NAMESPACE;
+  const usersNamespace = require('./user').NAMESPACE;
+
   const ioScreens = io.of(screensNamespace);
   const ioUsers = io.of(usersNamespace);
 
@@ -283,6 +285,7 @@ function getRouter(io) {
 }
 
 async function getLocationScreens(locationId, io) {
+  const screensNamespace = require('./screen').NAMESPACE;
   const ioScreens = io.of(screensNamespace);
   let screens = await Screen.findAll({
     where: {
