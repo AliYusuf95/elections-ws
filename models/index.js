@@ -163,7 +163,7 @@ async function initModels(sequelize) {
     },
     {
       sequelize,
-      tableName: 'candidate_new',
+      tableName: 'candidates_new',
       modelName: 'candidate',
     }
   );

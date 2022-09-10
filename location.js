@@ -1,4 +1,5 @@
 const express = require('express');
+const { Op } = require('sequelize');
 const { getLogger } = require('./logger');
 const { Location, Screen } = require('./models');
 
