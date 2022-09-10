@@ -1,7 +1,7 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const { getLogger } = require('./logger');
-const { Location, Screen } = require('./models');
+const { Location, Screen, Candidate } = require('./models');
 
 const routerLogger = getLogger('[Location-router]');
 
