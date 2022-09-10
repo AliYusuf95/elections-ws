@@ -146,6 +146,12 @@ async function initModels(sequelize) {
       sequelize,
       tableName: 'voters_new',
       modelName: 'voter',
+      indexes: [
+        {
+          unique: true,
+          fields: ['cpr'],
+        },
+      ],
     }
   );
 
