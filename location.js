@@ -234,7 +234,7 @@ function getRouter(io) {
         .json({ message: `Screen is not connected, screenId={${screenId}}` });
     }
 
-    const data = Candidate.findAll({
+    const data = await Candidate.findAll({
       attributes: ['id', 'name', 'img'],
       order: ['name'],
     });

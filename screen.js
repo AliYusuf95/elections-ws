@@ -45,7 +45,7 @@ function wsHandler(io) {
       });
 
       if (screen.voterId) {
-        const data = Candidate.findAll({
+        const data = await Candidate.findAll({
           attributes: ['id', 'name', 'img'],
           order: ['name'],
         });
