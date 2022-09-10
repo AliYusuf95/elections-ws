@@ -12,8 +12,8 @@ const cookieParser = require('cookie-parser');
 const unserializer = require('php-session-unserialize');
 const { getLogger, httpLoggerMiddleware } = require('./logger');
 const { sessionMiddleware } = require('./sessionMiddleware');
-const { MySqlSessionStore, InMemorySessionStore } = require('./sessionStore');
-const { initModels, AdminUser, User, Location, Screen } = require('./models');
+const { MySqlSessionStore } = require('./sessionStore');
+const { initModels, Screen } = require('./models');
 const { isUser, isAdminUser, isAuthenticated } = require('./authMiddleware');
 
 const locationRouter = require('./location').getRouter;

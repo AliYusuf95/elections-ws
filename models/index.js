@@ -24,6 +24,8 @@ class AdminUser extends Model {
     return compareSync(password, this.password);
   }
 }
+
+class Candidate extends Model {}
 class Voter extends Model {}
 
 async function initModels(sequelize) {
@@ -44,6 +46,15 @@ async function initModels(sequelize) {
       sessionId: DataTypes.STRING,
       code: DataTypes.STRING,
       connected: DataTypes.BOOLEAN,
+      available: {
+        type: DataTypes.VIRTUAL,
+        get() {
+          return !!this.voterId;
+        },
+        set(value) {
+          throw new Error('Do not try to set the `available` value!');
+        },
+      },
     },
     {
       sequelize,
@@ -61,9 +72,6 @@ async function initModels(sequelize) {
       ],
     }
   );
-
-  Screen.Location = Screen.belongsTo(Location);
-  Location.Screen = Location.hasMany(Screen);
 
   User.init(
     {
@@ -96,9 +104,6 @@ async function initModels(sequelize) {
       },
     }
   );
-
-  User.Location = User.belongsTo(Location);
-  Location.User = Location.hasMany(User);
 
   AdminUser.init(
     {
@@ -144,10 +149,36 @@ async function initModels(sequelize) {
     }
   );
 
-  Voter.Location = Voter.belongsTo(Location);
-  Location.Voter = Location.hasMany(Voter);
-  Voter.User = Voter.belongsTo(User);
-  User.Voter = User.hasMany(Voter);
+  Candidate.init(
+    {
+      name: DataTypes.STRING,
+      img: DataTypes.STRING,
+      votes: DataTypes.INTEGER(11),
+    },
+    {
+      sequelize,
+      tableName: 'candidate_new',
+      modelName: 'candidate',
+    }
+  );
+
+  // relations
+  Screen.belongsTo(Location);
+  Location.hasMany(Screen);
+  Voter.hasOne(Screen);
+  Screen.belongsTo(Voter, {
+    foreignKey: {
+      unique: true,
+    },
+  });
+
+  User.belongsTo(Location);
+  Location.hasMany(User);
+
+  Voter.belongsTo(Location);
+  Location.hasMany(Voter);
+  Voter.belongsTo(User);
+  User.hasMany(Voter);
 }
 
 module.exports = {
@@ -157,4 +188,5 @@ module.exports = {
   User,
   AdminUser,
   Voter,
+  Candidate,
 };

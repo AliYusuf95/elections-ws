@@ -1,6 +1,6 @@
 const express = require('express');
 const { getLogger } = require('./logger');
-const { Location, Screen } = require('./models');
+const { Location, Screen, Candidate } = require('./models');
 
 const router = express.Router();
 
@@ -43,6 +43,14 @@ function wsHandler(io) {
         locationId: screen.location.id,
         screens,
       });
+
+      if (screen.voterId) {
+        const data = Candidate.findAll({
+          attributes: ['id', 'name', 'img'],
+          order: ['name'],
+        });
+        socket.emit('show-vote', data);
+      }
     }
 
     socket.on('chat message', (msg) => {

@@ -105,7 +105,7 @@ function getRouter(io) {
 
     const screens = await getLocationScreens(locationId, io);
     ioUsers.to(`location-${locationId}`).emit('screens-list', {
-      locationId,
+      locationId: location.id,
       screens,
     });
     routerLogger.debug(socket.rooms);
@@ -142,6 +142,9 @@ function getRouter(io) {
       where: {
         id: screenId,
         locationId,
+        voterId: {
+          [Op.not]: null,
+        },
       },
     });
 
@@ -172,7 +175,7 @@ function getRouter(io) {
 
     const screens = await getLocationScreens(locationId, io);
     ioUsers.to(`location-${locationId}`).emit('screens-list', {
-      locationId,
+      locationId: location.id,
       screens,
     });
 
@@ -208,6 +211,9 @@ function getRouter(io) {
       where: {
         id: screenId,
         locationId,
+        voterId: {
+          [Op.not]: null,
+        },
         connected: true,
       },
     });
@@ -229,7 +235,11 @@ function getRouter(io) {
         .json({ message: `Screen is not connected, screenId={${screenId}}` });
     }
 
-    socket.emit('show-vote');
+    const data = Candidate.findAll({
+      attributes: ['id', 'name', 'img'],
+      order: ['name'],
+    });
+    socket.emit('show-vote', data);
 
     return res.status(200).json({ message: `Vote screen has requested` });
   });
