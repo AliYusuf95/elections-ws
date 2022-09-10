@@ -143,9 +143,7 @@ function getRouter(io) {
       where: {
         id: screenId,
         locationId,
-        voterId: {
-          [Op.not]: null,
-        },
+        voterId: null,
       },
     });
 
