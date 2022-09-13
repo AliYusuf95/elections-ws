@@ -64,10 +64,29 @@ app.use(ckParser);
 app.use(async (req, res, next) => {
   try {
     if (req.cookies['PHPSESSID']) {
-      const data = await fs.readFile(
+      let data = await fs.readFile(
         '/var/cpanel/php/sessions/ea-php72/sess_' + req.cookies['PHPSESSID'],
         'utf8'
       );
+      const dataSplit = data.split('|');
+      if (dataSplit.findIndex((s) => s === 'csrf-lib') >= 0) {
+        const crf = dataSplit.findIndex((s) => s === 'csrf-lib');
+        if (crf + 2 !== dataSplit.length) {
+          const crfData = dataSplit[crf + 1].split(';');
+          dataSplit[crf + 1] = crfData[crfData.length - 1];
+          dataSplit.splice(crf, 1);
+        } else {
+          dataSplit.splice(crf, 2);
+        }
+      } else if (dataSplit.findIndex((s) => s.endsWith('csrf-lib')) >= 0) {
+        const crf = dataSplit.findIndex((s) => s.endsWith('csrf-lib'));
+        let remain = dataSplit[crf].split(';');
+        remain.splice(remain.length - 1, 1);
+        remain = remain.join(';') + ';';
+        dataSplit[crf] = remain;
+        dataSplit.splice(crf + 1, 1);
+      }
+      data = dataSplit.join('|');
       const session = unserializer(data.trim());
       logger.debug(`cookies-session=${JSON.stringify(session)}`);
       req.session = session;
