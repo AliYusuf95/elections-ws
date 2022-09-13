@@ -62,9 +62,10 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(ckParser);
 // parse php session
 app.use(async (req, res, next) => {
+  let data = '';
   try {
     if (req.cookies['PHPSESSID']) {
-      let data = await fs.readFile(
+      data = await fs.readFile(
         '/var/cpanel/php/sessions/ea-php72/sess_' + req.cookies['PHPSESSID'],
         'utf8'
       );
@@ -95,7 +96,7 @@ app.use(async (req, res, next) => {
     logger.error(
       `unserialize cookies-session error={${
         (error && error.message) || JSON.stringify(error)
-      }}`
+      }} data={${data}}`
     );
   }
   next();
