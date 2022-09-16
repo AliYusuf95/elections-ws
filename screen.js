@@ -59,7 +59,7 @@ function wsHandler(io) {
 
     socket.on('disconnect', async () => {
       // notify users
-      if (screen.location.id) {
+      if (screen.location && screen.location.id) {
         const screens = await getLocationScreens(screen.location.id, io);
         ioUsers.to(`location-${screen.location.id}`).emit('screens-list', {
           locationId: screen.location.id,
