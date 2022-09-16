@@ -79,6 +79,9 @@ async function initModels(sequelize) {
         type: DataTypes.STRING,
         allowNull: false,
       },
+      name: {
+        type: DataTypes.STRING,
+      },
       password: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -95,7 +98,7 @@ async function initModels(sequelize) {
     },
     {
       sequelize,
-      tableName: 'users_new',
+      tableName: 'users',
       modelName: 'user',
       hooks: {
         beforeCreate: (user) => {
@@ -136,7 +139,7 @@ async function initModels(sequelize) {
     {
       name: DataTypes.STRING,
       cpr: DataTypes.INTEGER(9),
-      mobile: DataTypes.INTEGER(11),
+      mobile: DataTypes.STRING,
       fromwhere: DataTypes.STRING,
       status: DataTypes.INTEGER(11),
       unique_key: DataTypes.STRING,
@@ -144,7 +147,7 @@ async function initModels(sequelize) {
     },
     {
       sequelize,
-      tableName: 'voters_new',
+      tableName: 'voters',
       modelName: 'voter',
       indexes: [
         {
@@ -163,7 +166,7 @@ async function initModels(sequelize) {
     },
     {
       sequelize,
-      tableName: 'candidates_new',
+      tableName: 'candidates',
       modelName: 'candidate',
     }
   );
