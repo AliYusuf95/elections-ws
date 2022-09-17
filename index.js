@@ -13,7 +13,14 @@ const unserializer = require('php-session-unserialize');
 const { getLogger, httpLoggerMiddleware } = require('./logger');
 const { sessionMiddleware } = require('./sessionMiddleware');
 const { MySqlSessionStore } = require('./sessionStore');
-const { initModels, Screen } = require('./models');
+const {
+  initModels,
+  AdminUser,
+  Screen,
+  Candidate,
+  Location,
+  User,
+} = require('./models');
 const { isUser, isAdminUser, isAuthenticated } = require('./authMiddleware');
 
 const locationRouter = require('./location').getRouter;
@@ -29,6 +36,8 @@ const logger = getLogger('index.js');
 
 const app = express();
 const ckParser = cookieParser();
+const CORS_URLS = (process.env.CORS_URLS || '').split(';');
+const DATA_URL = process.env.DATA_URL || '';
 
 app.set('trust proxy', 'loopback');
 app.use(
@@ -48,10 +57,7 @@ app.use(
 );
 app.use(
   cors({
-    origin: [
-      'https://elections-ws.memamali.com',
-      'https://elections.memamali.com',
-    ],
+    origin: CORS_URLS,
     credentials: true,
   })
 );
@@ -106,11 +112,7 @@ app.use(httpLoggerMiddleware());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: [
-      'https://elections-ws.memamali.com',
-      'https://elections.memamali.com',
-      'https://admin.socket.io',
-    ],
+    origin: CORS_URLS,
     credentials: true,
   },
 });
@@ -158,6 +160,25 @@ app.get('/db-ops/:type', isAdminUser, async (req, res) => {
     return;
   }
   await sequelize.sync({ [type]: true, match: /^memamali_elections$/ });
+  if (type === 'force') {
+    const axios = require('axios');
+    logger.info(`fetch candidates data, url={${DATA_URL}}/candidates.json`);
+    const candidatesRes = await axios.get(`${DATA_URL}/candidates.json`);
+    if (Array.isArray(candidatesRes.data)) {
+      await Candidate.bulkCreate(candidatesRes.data);
+    }
+    logger.info(`fetch locations data, url={${DATA_URL}}/locations.json`);
+    const locationsRes = await axios.get(`${DATA_URL}/locations.json`);
+    if (Array.isArray(locationsRes.data)) {
+      await Location.bulkCreate(locationsRes.data);
+    }
+    await Location.bulkCreate([
+      { name: 'مركز الإمام الباقر (ع)' },
+      { name: 'مركز الإمام الرضا (ع)' },
+      { name: 'مركز الإمام الصادق (ع)' },
+      { name: 'مركز الإمام علي (ع)' },
+    ]);
+  }
   const message = `All models were synchronized successfully, type={${type}}`;
   logger.info(message);
   res.set('Content-Type', 'text/plain');

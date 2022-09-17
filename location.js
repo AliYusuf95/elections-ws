@@ -243,7 +243,7 @@ function getRouter(io) {
     return res.status(200).json({ message: `Vote screen has requested` });
   });
 
-  router.post('/:locationId/cancel-vote/:screenId', async (req, res) => {
+  router.post('/:locationId/submit-screen/:screenId', async (req, res) => {
     const locationId = req.params.locationId;
     const screenId = req.params.screenId;
     const user = req.user;
@@ -293,9 +293,9 @@ function getRouter(io) {
         .json({ message: `Screen is not connected, screenId={${screenId}}` });
     }
 
-    socket.emit('cancel-vote');
+    socket.emit('submit-vote');
 
-    return res.status(200).json({ message: `Vote screen has canceled` });
+    return res.status(200).json({ message: `Screen has been submitted` });
   });
 
   return router;

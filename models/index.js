@@ -100,11 +100,6 @@ async function initModels(sequelize) {
       sequelize,
       tableName: 'users',
       modelName: 'user',
-      hooks: {
-        beforeCreate: (user) => {
-          user.password = hashSync(user.password, 10);
-        },
-      },
     }
   );
 
@@ -138,7 +133,7 @@ async function initModels(sequelize) {
   Voter.init(
     {
       name: DataTypes.STRING,
-      cpr: DataTypes.INTEGER(9),
+      cpr: DataTypes.STRING(9),
       mobile: DataTypes.STRING,
       fromwhere: DataTypes.STRING,
       status: DataTypes.INTEGER(11),
@@ -161,8 +156,12 @@ async function initModels(sequelize) {
   Candidate.init(
     {
       name: DataTypes.STRING,
+      cpr: DataTypes.STRING(9),
       img: DataTypes.STRING,
-      votes: DataTypes.INTEGER(11),
+      votes: {
+        type: DataTypes.INTEGER(11),
+        defaultValue: 0,
+      },
     },
     {
       sequelize,
