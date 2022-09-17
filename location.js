@@ -273,6 +273,9 @@ function getRouter(io) {
         id: screenId,
         locationId,
         connected: true,
+        voterId: {
+          [Op.not]: null,
+        },
       },
     });
 

@@ -15,11 +15,12 @@ const { sessionMiddleware } = require('./sessionMiddleware');
 const { MySqlSessionStore } = require('./sessionStore');
 const {
   initModels,
-  AdminUser,
-  Screen,
-  Candidate,
   Location,
+  Screen,
   User,
+  AdminUser,
+  Voter,
+  Candidate,
 } = require('./models');
 const { isUser, isAdminUser, isAuthenticated } = require('./authMiddleware');
 
@@ -159,25 +160,27 @@ app.get('/db-ops/:type', isAdminUser, async (req, res) => {
     res.status(501).send();
     return;
   }
-  await sequelize.sync({ [type]: true, match: /^memamali_elections$/ });
+  await sequelize.query('SET FOREIGN_KEY_CHECKS = 0', { raw: true });
+  await Candidate.sync({ [type]: true, match: /^memamali_elections$/ });
+  await Location.sync({ [type]: true, match: /^memamali_elections$/ });
+  await User.sync({ [type]: true, match: /^memamali_elections$/ });
+  await Voter.sync({ [type]: true, match: /^memamali_elections$/ });
+  await Screen.sync({ [type]: true, match: /^memamali_elections$/ });
+  await sequelize.query('SET FOREIGN_KEY_CHECKS = 1', { raw: true });
   if (type === 'force') {
     const axios = require('axios');
-    logger.info(`fetch candidates data, url={${DATA_URL}}/candidates.json`);
+    logger.info(`fetch candidates data, url={${DATA_URL}/candidates.json}`);
     const candidatesRes = await axios.get(`${DATA_URL}/candidates.json`);
     if (Array.isArray(candidatesRes.data)) {
       await Candidate.bulkCreate(candidatesRes.data);
     }
-    logger.info(`fetch locations data, url={${DATA_URL}}/locations.json`);
+    logger.info(`fetch locations data, url={${DATA_URL}/locations.json}`);
     const locationsRes = await axios.get(`${DATA_URL}/locations.json`);
     if (Array.isArray(locationsRes.data)) {
       await Location.bulkCreate(locationsRes.data);
     }
-    await Location.bulkCreate([
-      { name: 'مركز الإمام الباقر (ع)' },
-      { name: 'مركز الإمام الرضا (ع)' },
-      { name: 'مركز الإمام الصادق (ع)' },
-      { name: 'مركز الإمام علي (ع)' },
-    ]);
+  } else {
+    await sequelize.sync({ [type]: true, match: /^memamali_elections$/ });
   }
   const message = `All models were synchronized successfully, type={${type}}`;
   logger.info(message);
@@ -204,7 +207,11 @@ try {
   (async () => {
     await sequelize.authenticate();
     await initModels(sequelize);
-    await Screen.update({ connected: false }, { where: { connected: true } });
+    try {
+      await Screen.update({ connected: false }, { where: { connected: true } });
+    } catch (error) {
+      logger.fatal('Unable to reset connected screens', error);
+    }
     server.listen(3000, () => {
       logger.info('listening on *:3000');
     });
