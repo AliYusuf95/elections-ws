@@ -152,7 +152,7 @@ app.get('/', isUser, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.use('/location', isAuthenticated, locationRouter(io));
+app.use('/location', isAuthenticated, locationRouter(io, sequelize));
 
 app.get('/db-ops/:type', isAdminUser, async (req, res) => {
   const type = req.params.type;

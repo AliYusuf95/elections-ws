@@ -5,7 +5,7 @@ const { Location, Screen, Candidate } = require('./models');
 
 const routerLogger = getLogger('[Location-router]');
 
-function getRouter(io) {
+function getRouter(io, sequelize) {
   const router = express.Router();
 
   const screensNamespace = require('./screen').NAMESPACE;
@@ -98,6 +98,14 @@ function getRouter(io) {
     screen.name = name;
     await screen.save();
 
+    sequelize.query(
+      `INSERT INTO system_log (title, username, created_at) VALUES ('تم إضافة شاشة التصويت (${
+        screen.name ? screen.name : screen.id
+      }) في المركز (${location.name})','${user.username}','${timeFormat(
+        new Date()
+      )}')`
+    );
+
     socket.emit('attached', {
       locationName: location.name,
       screenName: screen.name,
@@ -171,6 +179,14 @@ function getRouter(io) {
     screen.name = null;
     screen.connected = !!socket;
     await screen.save();
+
+    sequelize.query(
+      `INSERT INTO system_log (title, username, created_at) VALUES ('تم إزالة شاشة التصويت (${
+        screen.name ? screen.name : screen.id
+      }) من المركز (${location.name})','${user.username}','${timeFormat(
+        new Date()
+      )}')`
+    );
 
     const screens = await getLocationScreens(locationId, io);
     ioUsers.to(`location-${locationId}`).emit('screens-list', {
@@ -299,6 +315,14 @@ function getRouter(io) {
 
     socket.emit('submit-vote');
 
+    sequelize.query(
+      `INSERT INTO system_log (title, username, created_at) VALUES ('تم تسليم الإستمارة في شاشة التصويت (${
+        screen.name ? screen.name : screen.id
+      }) في المركز (${location.name})','${user.username}','${timeFormat(
+        new Date()
+      )}')`
+    );
+
     return res.status(200).json({ message: `Screen has been submitted` });
   });
 
@@ -327,6 +351,20 @@ async function getLocationScreens(locationId, io) {
   });
 
   return screens;
+}
+
+function timeFormat(date) {
+  let hours = date.getHours() + 3;
+  let minutes = date.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+
+  hours %= 12;
+  hours = (hours && (hours < 10 ? `0${hours}` : hours)) || 12;
+  minutes = minutes < 10 ? `0${minutes}` : minutes;
+
+  const strTime = `${hours}:${minutes}:${date.getSeconds()} ${ampm}`;
+
+  return strTime;
 }
 
 module.exports = {
