@@ -32,6 +32,11 @@ async function initModels(sequelize) {
   Location.init(
     {
       name: DataTypes.STRING,
+      open: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
     },
     {
       sequelize,

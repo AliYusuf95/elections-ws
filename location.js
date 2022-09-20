@@ -194,6 +194,7 @@ function getRouter(io) {
     const location = await Location.findOne({
       where: {
         id: locationId,
+        open: true,
       },
     });
 
