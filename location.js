@@ -69,7 +69,7 @@ function getRouter(io, sequelize) {
     );
     const screen = await Screen.findOne({
       where: {
-        code: sequelize.where(sequelize.fn('LOWER', sequelize.col('code')), '=', code),
+        code: sequelize.where(sequelize.fn('LOWER', sequelize.col('code')), '=', sequelize.fn('LOWER', code)),
         locationId: null,
         connected: true,
       },
