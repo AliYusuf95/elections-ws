@@ -21,8 +21,8 @@ function wsMiddleware(io) {
           'utf8'
         );
         const dataSplit = data.split('|');
-        if (dataSplit.findIndex((s) => s === 'csrf-lib') >= 0) {
-          const crf = dataSplit.findIndex((s) => s === 'csrf-lib');
+        if (dataSplit.findIndex((s) => s === 'vote-screen') >= 0) {
+          const crf = dataSplit.findIndex((s) => s === 'vote-screen');
           if (crf + 2 !== dataSplit.length) {
             const crfData = dataSplit[crf + 1].split(';');
             dataSplit[crf + 1] = crfData[crfData.length - 1];
@@ -30,8 +30,8 @@ function wsMiddleware(io) {
           } else {
             dataSplit.splice(crf, 2);
           }
-        } else if (dataSplit.findIndex((s) => s.endsWith('csrf-lib')) >= 0) {
-          const crf = dataSplit.findIndex((s) => s.endsWith('csrf-lib'));
+        } else if (dataSplit.findIndex((s) => s.endsWith('vote-screen')) >= 0) {
+          const crf = dataSplit.findIndex((s) => s.endsWith('vote-screen'));
           let remain = dataSplit[crf].split(';');
           remain.splice(remain.length - 1, 1);
           remain = remain.join(';') + ';';

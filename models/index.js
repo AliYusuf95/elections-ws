@@ -26,7 +26,24 @@ class AdminUser extends Model {
 }
 
 class Candidate extends Model {}
+class VotingResults extends Model {}
 class Voter extends Model {}
+class VoterData extends Model {}
+class Position extends Model {}
+class SystemLog extends Model {}
+
+const voterAttributes = {
+  name: DataTypes.STRING,
+  cpr: {
+    type: DataTypes.STRING(9),
+    allowNull: false,
+  },
+  mobile: DataTypes.STRING,
+  fromwhere: DataTypes.STRING,
+  // status: DataTypes.INTEGER(11),
+  // unique_key: DataTypes.STRING,
+  notes: DataTypes.STRING,
+};
 
 async function initModels(sequelize) {
   Location.init(
@@ -137,13 +154,7 @@ async function initModels(sequelize) {
 
   Voter.init(
     {
-      name: DataTypes.STRING,
-      cpr: DataTypes.STRING(9),
-      mobile: DataTypes.STRING,
-      fromwhere: DataTypes.STRING,
-      status: DataTypes.INTEGER(11),
-      unique_key: DataTypes.STRING,
-      notes: DataTypes.STRING,
+      ...voterAttributes,
     },
     {
       sequelize,
@@ -158,11 +169,65 @@ async function initModels(sequelize) {
     }
   );
 
+  VoterData.init(
+    {
+      ...voterAttributes,
+      status: DataTypes.INTEGER(11),
+    },
+    {
+      sequelize,
+      tableName: 'voters_data',
+      modelName: 'voterData',
+      indexes: [
+        {
+          unique: true,
+          fields: ['cpr'],
+        },
+      ],
+    }
+  );
+
   Candidate.init(
     {
       name: DataTypes.STRING,
-      cpr: DataTypes.STRING(9),
+      cpr: {
+        type: DataTypes.STRING(9),
+        allowNull: false,
+        unique: true,
+      },
       img: DataTypes.STRING,
+    },
+    {
+      sequelize,
+      tableName: 'candidates',
+      modelName: 'candidate',
+    }
+  );
+
+  Position.init(
+    {
+      name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      maxVotes: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      order: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      }
+    },
+    {
+      sequelize,
+      tableName: 'positions',
+      modelName: 'position',
+    }
+  );
+
+  VotingResults.init(
+    {
       votes: {
         type: DataTypes.INTEGER(11),
         defaultValue: 0,
@@ -170,8 +235,22 @@ async function initModels(sequelize) {
     },
     {
       sequelize,
-      tableName: 'candidates',
-      modelName: 'candidate',
+      tableName: 'voting_results',
+      modelName: 'voting_results',
+    }
+  );
+
+  SystemLog.init(
+    {
+      title: DataTypes.STRING,
+      username: DataTypes.STRING,
+      created_at: DataTypes.STRING,
+    },
+    {
+      sequelize,
+      tableName: 'system_log',
+      modelName: 'system_log',
+      updatedAt: false,
     }
   );
 
@@ -188,10 +267,17 @@ async function initModels(sequelize) {
   User.belongsTo(Location);
   Location.hasMany(User);
 
-  Voter.belongsTo(Location);
-  Location.hasMany(Voter);
-  Voter.belongsTo(User);
-  User.hasMany(Voter);
+  VoterData.belongsTo(Location);
+  Location.hasMany(VoterData);
+  VoterData.belongsTo(User);
+  VoterData.belongsTo(Voter);
+  User.hasMany(VoterData);
+  Candidate.hasMany(VotingResults, {
+    onDelete: 'CASCADE',
+  });
+  Candidate.belongsTo(Position, {
+    onDelete: 'CASCADE',
+  });
 }
 
 module.exports = {
@@ -201,5 +287,9 @@ module.exports = {
   User,
   AdminUser,
   Voter,
+  VoterData,
   Candidate,
+  VotingResults,
+  Position,
+  SystemLog,
 };

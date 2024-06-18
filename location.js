@@ -1,7 +1,7 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const { getLogger } = require('./logger');
-const { Location, Screen, Candidate } = require('./models');
+const { Location, Screen, VotingResults, Candidate, SystemLog, Position} = require('./models');
 
 const routerLogger = getLogger('[Location-router]');
 
@@ -69,7 +69,7 @@ function getRouter(io, sequelize) {
     );
     const screen = await Screen.findOne({
       where: {
-        code,
+        code: sequelize.where(sequelize.fn('LOWER', sequelize.col('code')), '=', code),
         locationId: null,
         connected: true,
       },
@@ -98,13 +98,11 @@ function getRouter(io, sequelize) {
     screen.name = name;
     await screen.save();
 
-    sequelize.query(
-      `INSERT INTO system_log (title, username, created_at) VALUES ('تم إضافة شاشة التصويت (${
-        screen.name ? screen.name : screen.id
-      }) في المركز (${location.name})','${user.username}','${timeFormat(
-        new Date()
-      )}')`
-    );
+    await SystemLog.create({
+      title: `تم إضافة شاشة التصويت (${screen.name}) في المركز (${location.name})`,
+      username: user.username,
+      created_at: timeFormat(new Date()),
+    });
 
     socket.emit('attached', {
       locationName: location.name,
@@ -175,18 +173,17 @@ function getRouter(io, sequelize) {
       });
     }
 
+    const screenName = screen.name ? screen.name : screen.id;
     screen.locationId = null;
     screen.name = null;
     screen.connected = !!socket;
     await screen.save();
 
-    sequelize.query(
-      `INSERT INTO system_log (title, username, created_at) VALUES ('تم إزالة شاشة التصويت (${
-        screen.name ? screen.name : screen.id
-      }) من المركز (${location.name})','${user.username}','${timeFormat(
-        new Date()
-      )}')`
-    );
+    await SystemLog.create({
+      title: `تم إزالة شاشة التصويت (${screenName}) من المركز (${location.name})`,
+      username: user.username,
+      created_at: timeFormat(new Date()),
+    });
 
     const screens = await getLocationScreens(locationId, io);
     ioUsers.to(`location-${locationId}`).emit('screens-list', {
@@ -254,6 +251,12 @@ function getRouter(io, sequelize) {
     const data = await Candidate.findAll({
       attributes: ['id', 'name', 'img'],
       order: ['name'],
+      include: [
+        {
+          model: Position,
+          attributes: ['id', 'name', 'maxVotes', 'order'],
+        },
+      ]
     });
     socket.emit('show-vote', data);
 
@@ -315,13 +318,12 @@ function getRouter(io, sequelize) {
 
     socket.emit('submit-vote');
 
-    sequelize.query(
-      `INSERT INTO system_log (title, username, created_at) VALUES ('تم تسليم الإستمارة في شاشة التصويت (${
-        screen.name ? screen.name : screen.id
-      }) في المركز (${location.name})','${user.username}','${timeFormat(
-        new Date()
-      )}')`
-    );
+    const screenName = screen.name ? screen.name : screen.id;
+    await SystemLog.create({
+      title: `تم تسليم الإستمارة في شاشة التصويت (${screenName}) في المركز (${location.name})`,
+      username: user.username,
+      created_at: timeFormat(new Date()),
+    });
 
     return res.status(200).json({ message: `Screen has been submitted` });
   });
@@ -362,9 +364,7 @@ function timeFormat(date) {
   hours = (hours && (hours < 10 ? `0${hours}` : hours)) || 12;
   minutes = minutes < 10 ? `0${minutes}` : minutes;
 
-  const strTime = `${hours}:${minutes}:${date.getSeconds()} ${ampm}`;
-
-  return strTime;
+  return `${hours}:${minutes}:${date.getSeconds()} ${ampm}`;
 }
 
 module.exports = {

@@ -1,6 +1,6 @@
 const express = require('express');
 const { getLogger } = require('./logger');
-const { Location, Screen, Candidate } = require('./models');
+const { Location, Screen, Position, Candidate } = require('./models');
 
 const router = express.Router();
 
@@ -48,6 +48,12 @@ function wsHandler(io) {
         const data = await Candidate.findAll({
           attributes: ['id', 'name', 'img'],
           order: ['name'],
+          include: [
+            {
+              model: Position,
+              attributes: ['id', 'name', 'maxVotes', 'order'],
+            },
+          ]
         });
         socket.emit('show-vote', data);
       }

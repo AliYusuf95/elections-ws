@@ -20,9 +20,14 @@ const {
   User,
   AdminUser,
   Voter,
+  VoterData,
+  VotingResults,
   Candidate,
+  Position,
+  SystemLog,
 } = require('./models');
 const { isUser, isAdminUser, isAuthenticated } = require('./authMiddleware');
+const axios = require("axios");
 
 const locationRouter = require('./location').getRouter;
 const screenWSHandler = require('./screen').wsHandler;
@@ -71,14 +76,15 @@ app.use(ckParser);
 app.use(async (req, res, next) => {
   let data = '';
   try {
+    logger.debug(`cookies=${JSON.stringify(req.cookies)}`);
     if (req.cookies['PHPSESSID']) {
       data = await fs.readFile(
         '/var/cpanel/php/sessions/ea-php72/sess_' + req.cookies['PHPSESSID'],
         'utf8'
       );
       const dataSplit = data.split('|');
-      if (dataSplit.findIndex((s) => s === 'csrf-lib') >= 0) {
-        const crf = dataSplit.findIndex((s) => s === 'csrf-lib');
+      if (dataSplit.findIndex((s) => s === 'vote-screen') >= 0) {
+        const crf = dataSplit.findIndex((s) => s === 'vote-screen');
         if (crf + 2 !== dataSplit.length) {
           const crfData = dataSplit[crf + 1].split(';');
           dataSplit[crf + 1] = crfData[crfData.length - 1];
@@ -86,8 +92,8 @@ app.use(async (req, res, next) => {
         } else {
           dataSplit.splice(crf, 2);
         }
-      } else if (dataSplit.findIndex((s) => s.endsWith('csrf-lib')) >= 0) {
-        const crf = dataSplit.findIndex((s) => s.endsWith('csrf-lib'));
+      } else if (dataSplit.findIndex((s) => s.endsWith('vote-screen')) >= 0) {
+        const crf = dataSplit.findIndex((s) => s.endsWith('vote-screen'));
         let remain = dataSplit[crf].split(';');
         remain.splice(remain.length - 1, 1);
         remain = remain.join(';') + ';';
@@ -154,21 +160,30 @@ app.get('/', isUser, (req, res) => {
 
 app.use('/location', isAuthenticated, locationRouter(io, sequelize));
 
-app.get('/db-ops/:type', isAdminUser, async (req, res) => {
+app.get('/db-ops/:type', async (req, res) => {
   const type = req.params.type;
   if (!['alter', 'force'].includes(type)) {
     res.status(501).send();
     return;
   }
   await sequelize.query('SET FOREIGN_KEY_CHECKS = 0', { raw: true });
+  await VotingResults.sync({ [type]: true, match: /^memamali_elections$/ });
+  await Position.sync({ [type]: true, match: /^memamali_elections$/ });
   await Candidate.sync({ [type]: true, match: /^memamali_elections$/ });
+  await SystemLog.sync({ [type]: true, match: /^memamali_elections$/ });
   await Location.sync({ [type]: true, match: /^memamali_elections$/ });
   await User.sync({ [type]: true, match: /^memamali_elections$/ });
   await Voter.sync({ [type]: true, match: /^memamali_elections$/ });
+  await VoterData.sync({ [type]: true, match: /^memamali_elections$/ });
   await Screen.sync({ [type]: true, match: /^memamali_elections$/ });
   await sequelize.query('SET FOREIGN_KEY_CHECKS = 1', { raw: true });
   if (type === 'force') {
     const axios = require('axios');
+    logger.info(`fetch positions data, url={${DATA_URL}/positions.json}`);
+    const positionsRes = await axios.get(`${DATA_URL}/positions.json`);
+    if (Array.isArray(positionsRes.data)) {
+      await Position.bulkCreate(positionsRes.data);
+    }
     logger.info(`fetch candidates data, url={${DATA_URL}/candidates.json}`);
     const candidatesRes = await axios.get(`${DATA_URL}/candidates.json`);
     if (Array.isArray(candidatesRes.data)) {

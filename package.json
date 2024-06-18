@@ -4,6 +4,7 @@
   "description": "Elections Websocket Server",
   "main": "index.js",
   "scripts": {
+    "start.dev": "nodemon --env-file=.env",
     "start": "cloudlinux-selector start --json --interpreter nodejs --app-root /home2/memamali/apps/elections-ws",
     "stop": "cloudlinux-selector stop --json --interpreter nodejs --app-root /home2/memamali/apps/elections-ws",
     "restart": "cloudlinux-selector restart --json --interpreter nodejs --app-root /home2/memamali/apps/elections-ws",
@@ -28,5 +29,8 @@
     "sequelize": "^6.21.4",
     "socket.io": "^4.5.1",
     "tail": "^2.2.4"
+  },
+  "devDependencies": {
+    "nodemon": "3.1.3"
   }
 }
