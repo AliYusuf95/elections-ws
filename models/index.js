@@ -233,6 +233,15 @@ async function initModels(sequelize) {
         type: DataTypes.INTEGER(11),
         defaultValue: 0,
       },
+      candidateId: {
+        unique: true,
+        type: DataTypes.INTEGER(11),
+        references: {
+          model: Candidate, // 'Movies' would also work
+          key: 'id',
+        },
+        onDelete: 'CASCADE',
+      }
     },
     {
       sequelize,
@@ -294,9 +303,6 @@ async function initModels(sequelize) {
   VoterData.belongsTo(User);
   VoterData.belongsTo(Voter);
   User.hasMany(VoterData);
-  Candidate.hasMany(VotingResults, {
-    onDelete: 'CASCADE',
-  });
   Candidate.belongsTo(Position, {
     onDelete: 'CASCADE',
   });
