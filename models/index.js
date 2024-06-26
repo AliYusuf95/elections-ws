@@ -27,6 +27,7 @@ class AdminUser extends Model {
 
 class Candidate extends Model {}
 class VotingResults extends Model {}
+class VotingSubmissions extends Model {}
 class Voter extends Model {}
 class VoterData extends Model {}
 class Position extends Model {}
@@ -240,6 +241,20 @@ async function initModels(sequelize) {
     }
   );
 
+  VotingSubmissions.init(
+    {
+      submission: {
+        type: DataTypes.JSON,
+        allowNull: false,
+      }
+    },
+    {
+      sequelize,
+      tableName: 'voting_submissions',
+      modelName: 'voting_submissions',
+    }
+  );
+
   SystemLog.init(
     {
       title: DataTypes.STRING,
@@ -290,6 +305,7 @@ module.exports = {
   VoterData,
   Candidate,
   VotingResults,
+  VotingSubmissions,
   Position,
   SystemLog,
 };

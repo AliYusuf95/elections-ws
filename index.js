@@ -25,6 +25,7 @@ const {
   Candidate,
   Position,
   SystemLog,
+  VotingSubmissions,
 } = require('./models');
 const { isUser, isAdminUser, isAuthenticated } = require('./authMiddleware');
 const axios = require("axios");
@@ -166,17 +167,22 @@ app.get('/db-ops/:type', async (req, res) => {
     res.status(501).send();
     return;
   }
+
+  // tables may have foreign key constraints
   await sequelize.query('SET FOREIGN_KEY_CHECKS = 0', { raw: true });
   await VotingResults.sync({ [type]: true, match: /^memamali_elections$/ });
+  await VotingSubmissions.sync({ [type]: true, match: /^memamali_elections$/ });
   await Position.sync({ [type]: true, match: /^memamali_elections$/ });
   await Candidate.sync({ [type]: true, match: /^memamali_elections$/ });
   await SystemLog.sync({ [type]: true, match: /^memamali_elections$/ });
   await Location.sync({ [type]: true, match: /^memamali_elections$/ });
   await User.sync({ [type]: true, match: /^memamali_elections$/ });
+  await AdminUser.sync({ [type]: true, match: /^memamali_elections$/ });
   await Voter.sync({ [type]: true, match: /^memamali_elections$/ });
   await VoterData.sync({ [type]: true, match: /^memamali_elections$/ });
   await Screen.sync({ [type]: true, match: /^memamali_elections$/ });
   await sequelize.query('SET FOREIGN_KEY_CHECKS = 1', { raw: true });
+
   if (type === 'force') {
     const axios = require('axios');
     logger.info(`fetch positions data, url={${DATA_URL}/positions.json}`);
@@ -194,6 +200,20 @@ app.get('/db-ops/:type', async (req, res) => {
     if (Array.isArray(locationsRes.data)) {
       await Location.bulkCreate(locationsRes.data);
     }
+
+    await AdminUser.findOrCreate({
+      where: { username: 'admin' },
+      defaults: {
+        password: AdminUser.hashPassword('admin'),
+      },
+    });
+    await User.findOrCreate({
+      where: { username: 'user' },
+      defaults: {
+        ...(Array.isArray(locationsRes.data) && locationsRes.length > 0 ? {locationId: locationsRes[0].id} : {}),
+        password: User.hashPassword('user'),
+      },
+    });
   } else {
     await sequelize.sync({ [type]: true, match: /^memamali_elections$/ });
   }
