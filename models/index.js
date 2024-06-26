@@ -243,6 +243,11 @@ async function initModels(sequelize) {
 
   VotingSubmissions.init(
     {
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+      },
       submission: {
         type: DataTypes.JSON,
         allowNull: false,
@@ -252,6 +257,8 @@ async function initModels(sequelize) {
       sequelize,
       tableName: 'voting_submissions',
       modelName: 'voting_submissions',
+      updatedAt: false,
+      createdAt: false,
     }
   );
 
