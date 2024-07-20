@@ -132,6 +132,9 @@ async function initModels(sequelize) {
         type: DataTypes.STRING,
         allowNull: false,
       },
+      name: {
+        type: DataTypes.STRING,
+      },
       password: {
         type: DataTypes.STRING,
         allowNull: false,
