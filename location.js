@@ -250,7 +250,7 @@ function getRouter(io, sequelize) {
 
     const data = await Candidate.findAll({
       attributes: ['id', 'name', 'img'],
-      order: ['name'],
+      order: ['id'],
       include: [
         {
           model: Position,
