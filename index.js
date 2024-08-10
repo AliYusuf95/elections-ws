@@ -45,6 +45,7 @@ const app = express();
 const ckParser = cookieParser();
 const CORS_URLS = (process.env.CORS_URLS || '').split(';');
 const DATA_URL = process.env.DATA_URL || '';
+const DB_SCHEMA = process.env.DB_SCHEMA || 'elections';
 
 app.set('trust proxy', 'loopback');
 app.use(
@@ -168,19 +169,21 @@ app.get('/db-ops/:type', async (req, res) => {
     return;
   }
 
+  const schemaRegex = new RegExp(`/^${DB_SCHEMA}$/`);
+
   // tables may have foreign key constraints
   await sequelize.query('SET FOREIGN_KEY_CHECKS = 0', { raw: true });
-  await VotingResults.sync({ [type]: true, match: /^memamali_elections$/ });
-  await VotingSubmissions.sync({ [type]: true, match: /^memamali_elections$/ });
-  await Position.sync({ [type]: true, match: /^memamali_elections$/ });
-  await Candidate.sync({ [type]: true, match: /^memamali_elections$/ });
-  await SystemLog.sync({ [type]: true, match: /^memamali_elections$/ });
-  await Location.sync({ [type]: true, match: /^memamali_elections$/ });
-  await User.sync({ [type]: true, match: /^memamali_elections$/ });
-  await AdminUser.sync({ [type]: true, match: /^memamali_elections$/ });
-  await Voter.sync({ [type]: true, match: /^memamali_elections$/ });
-  await VoterData.sync({ [type]: true, match: /^memamali_elections$/ });
-  await Screen.sync({ [type]: true, match: /^memamali_elections$/ });
+  await VotingResults.sync({ [type]: true, match: schemaRegex });
+  await VotingSubmissions.sync({ [type]: true, match: schemaRegex });
+  await Position.sync({ [type]: true, match: schemaRegex });
+  await Candidate.sync({ [type]: true, match: schemaRegex });
+  await SystemLog.sync({ [type]: true, match: schemaRegex });
+  await Location.sync({ [type]: true, match: schemaRegex });
+  await User.sync({ [type]: true, match: schemaRegex });
+  await AdminUser.sync({ [type]: true, match: schemaRegex });
+  await Voter.sync({ [type]: true, match: schemaRegex });
+  await VoterData.sync({ [type]: true, match: schemaRegex });
+  await Screen.sync({ [type]: true, match: schemaRegex });
   await sequelize.query('SET FOREIGN_KEY_CHECKS = 1', { raw: true });
 
   if (type === 'force') {
@@ -215,7 +218,7 @@ app.get('/db-ops/:type', async (req, res) => {
       },
     });
   } else {
-    await sequelize.sync({ [type]: true, match: /^memamali_elections$/ });
+    await sequelize.sync({ [type]: true, match: schemaRegex });
   }
   const message = `All models were synchronized successfully, type={${type}}`;
   logger.info(message);
